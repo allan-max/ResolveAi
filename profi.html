@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App do Prestador - MVP</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* ================= DESIGN SYSTEM ================= */
+        :root {
+            --bg-dark: #0F172A; --primary-blue: #2563EB;
+            --success-green: #22C55E; --rating-yellow: #FACC15; --alert-red: #EF4444;
+            --bg-color: #F8FAFC; --card-bg: #FFFFFF;
+            --border-color: #E2E8F0; --text-main: #1E293B; --text-muted: #64748B;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        body { background-color: #CBD5E1; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+
+        /* SIMULADOR MOBILE */
+        .mobile-simulator {
+            width: 390px; height: 844px; background-color: var(--bg-color);
+            border: 14px solid #1E293B; border-radius: 45px; position: relative;
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            display: flex; flex-direction: column;
+        }
+        .mobile-simulator::before {
+            content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 30px; background-color: #1E293B;
+            border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; z-index: 9999;
+        }
+
+        .glass-effect { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+        /* HEADER DO PRESTADOR */
+        .top-header { position: absolute; top: 0; width: 100%; z-index: 1000; padding: 45px 20px 15px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+        .header-greeting h1 { font-size: 1.2rem; color: var(--bg-dark); }
+        .header-greeting p { font-size: 0.8rem; color: var(--success-green); font-weight: 600; display: flex; align-items: center; gap: 4px; }
+        .status-toggle { width: 40px; height: 24px; background: var(--success-green); border-radius: 12px; position: relative; cursor: pointer; }
+        .status-toggle::after { content: ''; position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; background: white; border-radius: 50%; }
+
+        /* ÁREA DE CONTEÚDO */
+        .app-content { flex: 1; overflow-y: auto; padding-top: 105px; padding-bottom: 100px; scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-y: contain; }
+        .app-content::-webkit-scrollbar { display: none; }
+        .tab-section { display: none; padding: 0 20px; animation: fadeIn 0.3s ease; }
+        .tab-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        h2 { font-size: 1.1rem; margin: 20px 0 15px; color: var(--bg-dark); }
+
+        /* DASHBOARD (TELA INICIAL DO PRESTADOR) */
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px; }
+        .stat-card { background: var(--bg-dark); color: white; padding: 15px; border-radius: 16px; display: flex; flex-direction: column; gap: 5px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .stat-card.light { background: var(--card-bg); color: var(--bg-dark); border: 1px solid var(--border-color); box-shadow: none; }
+        .stat-card span { font-size: 0.8rem; color: #94A3B8; }
+        .stat-card.light span { color: var(--text-muted); }
+        .stat-card h3 { font-size: 1.4rem; margin: 0; }
+
+        /* LISTA DE SERVIÇOS E PREÇOS */
+        .services-list { display: flex; flex-direction: column; gap: 10px; }
+        .service-item { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 15px; border-radius: 14px; border: 1px solid var(--border-color); }
+        .service-info h4 { font-size: 0.95rem; color: var(--text-main); margin-bottom: 4px; }
+        .service-info p { font-size: 0.75rem; color: var(--text-muted); }
+        .service-price { font-weight: 700; color: var(--primary-blue); font-size: 0.9rem; background: #DBEAFE; padding: 6px 10px; border-radius: 8px; }
+
+        /* ÁREAS DE ATENDIMENTO */
+        .areas-container { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        .area-chip { background: var(--card-bg); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; color: var(--text-main); display: flex; align-items: center; gap: 4px; }
+        .area-chip i { color: var(--primary-blue); }
+        .add-area-btn { background: transparent; border: 1px dashed var(--primary-blue); color: var(--primary-blue); padding: 6px 12px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; }
+
+        /* SISTEMA DE CHAT (VISÃO PRESTADOR) */
+        .chat-list-container { display: flex; flex-direction: column; gap: 10px; }
+        .chat-list-item { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 14px; border: 1px solid var(--border-color); cursor: pointer; }
+        .chat-list-avatar { width: 50px; height: 50px; border-radius: 50%; object-fit: cover; }
+        .chat-list-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .chat-list-header { display: flex; justify-content: space-between; align-items: center; }
+        .chat-list-header h3 { font-size: 0.95rem; margin: 0; color: var(--text-main); }
+        .chat-list-time { font-size: 0.75rem; color: var(--text-muted); }
+        .chat-list-msg { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 210px; }
+        .unread-badge { background: var(--primary-blue); color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+
+        .chat-conversation-view { display: none; flex-direction: column; height: 100%; }
+        .chat-user-header { display: flex; align-items: center; gap: 12px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; }
+        .btn-back-chat { background: none; border: none; font-size: 1.5rem; color: var(--text-main); cursor: pointer; }
+        .chat-user-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+        .chat-user-info h3 { font-size: 1rem; margin: 0; color: var(--bg-dark); }
+        
+        .chat-messages { flex: 1; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; overflow-y: auto; padding-bottom: 10px; scrollbar-width: none; }
+        .msg { max-width: 85%; padding: 10px 14px; border-radius: 16px; font-size: 0.85rem; line-height: 1.4; }
+        .msg.received { background: var(--card-bg); border: 1px solid var(--border-color); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .msg.sent { background: var(--primary-blue); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .chat-date-divider { text-align: center; font-size: 0.7rem; color: var(--text-muted); margin: 10px 0; }
+        
+        .chat-input-area { display: flex; gap: 10px; background: var(--card-bg); padding: 10px; border-radius: 20px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .chat-input-area input { flex: 1; border: none; outline: none; background: transparent; font-size: 0.9rem; }
+        .chat-input-area button { background: var(--primary-blue); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* PEDIDOS PENDENTES */
+        .request-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 15px; margin-bottom: 12px; }
+        .req-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.85rem; color: var(--text-muted); }
+        .req-title { font-weight: 600; color: var(--bg-dark); font-size: 1rem; margin-bottom: 5px; }
+        .req-actions { display: flex; gap: 10px; margin-top: 15px; }
+        .btn-accept { flex: 1; background: var(--success-green); color: white; border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+        .btn-decline { flex: 1; background: #F1F5F9; color: var(--text-main); border: none; padding: 10px; border-radius: 8px; font-weight: 600; cursor: pointer; }
+
+        /* NAVEGAÇÃO INFERIOR */
+        .bottom-nav { position: absolute; bottom: 0; width: 100%; display: flex; justify-content: space-around; padding: 15px 0 25px; border-top: 1px solid var(--border-color); z-index: 1500; }
+        .nav-item { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.7rem; cursor: pointer; }
+        .nav-item i { font-size: 1.4rem; }
+        .nav-item.active { color: var(--primary-blue); }
+    </style>
+</head>
+<body>
+
+<div class="mobile-simulator">
+    
+    <!-- HEADER DO PRESTADOR -->
+    <header class="top-header glass-effect" id="mainHeader">
+        <div class="header-greeting">
+            <h1 id="providerNameDisplay">Olá, Profissional</h1>
+            <p><i class="ph-fill ph-circle"></i> Disponível para serviços</p>
+        </div>
+        <div class="status-toggle" onclick="alert('Status alterado para Ocupado/Offline')"></div>
+    </header>
+
+    <!-- CONTEÚDO DAS ABAS -->
+    <main class="app-content" id="appMainContent">
+        
+        <!-- ABA 1: DASHBOARD (HOME DO PRESTADOR) -->
+        <section id="tab-dashboard" class="tab-section active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span>Ganhos no mês</span>
+                    <h3 id="statEarnings">R$ 0,00</h3>
+                </div>
+                <div class="stat-card light">
+                    <span>Serviços Concluídos</span>
+                    <h3 id="statCompleted">0</h3>
+                </div>
+            </div>
+
+            <h2>Minhas Áreas de Atendimento</h2>
+            <div class="areas-container" id="areasContainer">
+                <!-- Áreas geradas via JS -->
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Meus Serviços e Valores</h2>
+                <button class="add-area-btn" onclick="alert('Adicionar novo serviço')">+ Novo</button>
+            </div>
+            <div class="services-list" id="servicesContainer">
+                <!-- Serviços gerados via JS -->
+            </div>
+        </section>
+
+        <!-- ABA 2: PEDIDOS (NOVA SOLICITAÇÕES) -->
+        <section id="tab-orders" class="tab-section">
+            <h2>Novas Solicitações</h2>
+            <div id="requestsContainer">
+                <!-- Pedidos gerados via JS -->
+            </div>
+        </section>
+
+        <!-- ABA 3: CHAT DE CLIENTES -->
+        <section id="tab-chat" class="tab-section">
+            <div id="chatListView">
+                <h2 style="margin-top: 0;">Mensagens de Clientes</h2>
+                <div class="chat-list-container" id="chatListContainer"></div>
+            </div>
+
+            <div id="chatConversationView" class="chat-conversation-view">
+                <div class="chat-user-header" id="activeChatHeader">
+                    <button class="btn-back-chat" onclick="backToChatList()"><i class="ph ph-caret-left"></i></button>
+                    <img src="" id="activeChatAvatar" class="chat-user-avatar">
+                    <div class="chat-user-info">
+                        <h3 id="activeChatName">Nome do Cliente</h3>
+                        <span style="color: var(--text-muted); font-weight: normal;">Vila Velha, ES</span>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatWindow"></div>
+                <div class="chat-input-area">
+                    <input type="text" placeholder="Envie seu orçamento..." id="chatInput" onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()"><i class="ph-fill ph-paper-plane-right"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 4: CONTA -->
+        <section id="tab-account" class="tab-section">
+            <h2>Configurações da Conta</h2>
+            <!-- Estrutura simples de menu de conta -->
+            <div class="services-list" style="margin-top: 20px;">
+                <div class="service-item" onclick="alert('Editar Perfil Público')">
+                    <div class="service-info"><h4>Meu Perfil Público</h4><p>Como os clientes me veem</p></div>
+                    <i class="ph ph-caret-right"></i>
+                </div>
+                <div class="service-item" onclick="alert('Gerenciar Conta Bancária')">
+                    <div class="service-info"><h4>Dados Bancários / PIX</h4><p>Para recebimento seguro</p></div>
+                    <i class="ph ph-caret-right"></i>
+                </div>
+                <div class="service-item" onclick="alert('Verificações e Documentos')">
+                    <div class="service-info"><h4>Verificação de Confiança</h4><p>Envio de CNH/Antecedentes</p></div>
+                    <i class="ph ph-seal-check" style="color: var(--success-green); font-size: 1.2rem;"></i>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav glass-effect">
+        <button class="nav-item active" data-target="tab-dashboard"><i class="ph-fill ph-squares-four"></i><span>Painel</span></button>
+        <button class="nav-item" data-target="tab-orders"><i class="ph-fill ph-clipboard-text"></i><span>Pedidos</span></button>
+        <button class="nav-item" data-target="tab-chat"><i class="ph-fill ph-chat-circle-dots"></i><span>Chat</span></button>
+        <button class="nav-item" data-target="tab-account"><i class="ph-fill ph-user"></i><span>Conta</span></button>
+    </nav>
+
+</div>
+
+<script>
+    // ================= 1. ESTADO CENTRALIZADO (JSON DO PRESTADOR) =================
+    const appState = {
+        provider: {
+            name: "Allan Iglesias",
+            profession: "Serviços Gerais & Manutenção",
+            avatar: "https://i.pravatar.cc/150?img=68",
+            stats: { earnings: "R$ 3.850,00", completed: 47 },
+            areas: ["Vila Velha, ES", "Vitória, ES", "Cariacica, ES"],
+            services: [
+                { id: 1, name: "Instalação de Tomada/Interruptor", desc: "Material não incluso", price: "R$ 80" },
+                { id: 2, name: "Troca de Chuveiro/Resistência", desc: "Mão de obra", price: "R$ 120" },
+                { id: 3, name: "Montagem de Móvel Pequeno", desc: "Cadeiras, mesas de centro", price: "R$ 150" },
+                { id: 4, name: "Limpeza de Caixa D'água", desc: "Até 1000 Litros", price: "R$ 200" },
+                { id: 5, name: "Visita Técnica / Orçamento", desc: "Abatido do valor final", price: "R$ 50" }
+            ]
+        },
+        pendingRequests: [
+            { id: 101, client: "Marcos Andrade", location: "Praia da Costa, Vila Velha", service: "Troca de Chuveiro", time: "Há 15 min" },
+            { id: 102, client: "Juliana Silva", location: "Itapuã, Vila Velha", service: "Montagem de Móvel", time: "Há 2 horas" }
+        ],
+        recentChats: [
+            { 
+                clientId: 201, name: "Dona Maria", avatar: "https://i.pravatar.cc/150?img=43",
+                lastMessage: "Perfeito, valor justo. Consegue vir hoje?", time: "Agora", unread: 1,
+                history: [
+                    { type: "date", text: "Hoje" },
+                    { type: "received", text: "Bom dia, Allan! Encontrei seu perfil no app." },
+                    { type: "received", text: "Estou com um cano vazando na pia da cozinha e também preciso trocar o chuveiro. Você faz esses dois serviços braçais?" },
+                    { type: "sent", text: "Bom dia, Dona Maria! Faço sim." },
+                    { type: "sent", text: "A troca do chuveiro fica em R$ 120. O vazamento da pia eu preciso avaliar no local, a visita técnica é R$ 50 (que é abatida do valor final se fecharmos o serviço completo)." },
+                    { type: "received", text: "Perfeito, valor justo. Consegue vir hoje à tarde?" }
+                ]
+            },
+            { 
+                clientId: 202, name: "Roberto Ferraz", avatar: "https://i.pravatar.cc/150?img=15",
+                lastMessage: "Obrigado, o painel da TV ficou bem firme.", time: "Ontem", unread: 0,
+                history: [
+                    { type: "date", text: "Ontem" },
+                    { type: "sent", text: "Roberto, serviço finalizado. O pagamento já foi liberado no app." },
+                    { type: "received", text: "Obrigado, o painel da TV ficou bem firme. Excelente trabalho!" }
+                ]
+            }
+        ]
+    };
+
+    // ================= 2. RENDERIZAÇÃO DO DASHBOARD =================
+    document.addEventListener('DOMContentLoaded', () => {
+        loadProviderData();
+        renderAreas();
+        renderServices();
+        renderRequests();
+        renderChatList();
+    });
+
+    function loadProviderData() {
+        document.getElementById('providerNameDisplay').innerText = `Olá, ${appState.provider.name.split(' ')[0]}`;
+        document.getElementById('statEarnings').innerText = appState.provider.stats.earnings;
+        document.getElementById('statCompleted').innerText = appState.provider.stats.completed;
+    }
+
+    function renderAreas() {
+        const container = document.getElementById('areasContainer');
+        container.innerHTML = '';
+        appState.provider.areas.forEach(area => {
+            container.innerHTML += `<div class="area-chip"><i class="ph-fill ph-map-pin"></i> ${area}</div>`;
+        });
+        container.innerHTML += `<button class="add-area-btn" onclick="alert('Adicionar nova região')">+ Adicionar Bairro</button>`;
+    }
+
+    function renderServices() {
+        const container = document.getElementById('servicesContainer');
+        container.innerHTML = '';
+        appState.provider.services.forEach(srv => {
+            container.innerHTML += `
+                <div class="service-item">
+                    <div class="service-info">
+                        <h4>${srv.name}</h4>
+                        <p>${srv.desc}</p>
+                    </div>
+                    <div class="service-price">${srv.price}</div>
+                </div>`;
+        });
+    }
+
+    function renderRequests() {
+        const container = document.getElementById('requestsContainer');
+        container.innerHTML = '';
+        if(appState.pendingRequests.length === 0) {
+            container.innerHTML = '<p style="color: var(--text-muted);">Nenhum pedido novo no momento.</p>';
+            return;
+        }
+        appState.pendingRequests.forEach(req => {
+            container.innerHTML += `
+                <div class="request-card">
+                    <div class="req-header"><span>${req.time}</span> <span><i class="ph-fill ph-map-pin"></i> ${req.location}</span></div>
+                    <div class="req-title">${req.service}</div>
+                    <p style="font-size: 0.85rem; color: var(--text-main);">Cliente: ${req.client}</p>
+                    <div class="req-actions">
+                        <button class="btn-decline" onclick="alert('Pedido recusado.')">Recusar</button>
+                        <button class="btn-accept" onclick="alert('Pedido Aceito! Iniciando chat com o cliente.')">Aceitar Serviço</button>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // ================= 3. NAVEGAÇÃO DE ABAS =================
+    const navItems = document.querySelectorAll('.nav-item');
+    const tabSections = document.querySelectorAll('.tab-section');
+
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            navItems.forEach(nav => nav.classList.remove('active'));
+            tabSections.forEach(sec => sec.classList.remove('active'));
+            
+            e.currentTarget.classList.add('active');
+            const targetId = e.currentTarget.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+            
+            // Oculta o header principal se estiver no Chat (para usar o cabeçalho específico da conversa)
+            document.getElementById('mainHeader').style.display = targetId === 'tab-chat' && document.getElementById('chatConversationView').style.display === 'flex' ? 'none' : 'flex';
+
+            document.getElementById('appMainContent').scrollTop = 0;
+
+            if(targetId === 'tab-chat') {
+                backToChatList();
+            }
+        });
+    });
+
+    // ================= 4. SISTEMA DE CHAT =================
+    function renderChatList() {
+        const container = document.getElementById('chatListContainer');
+        container.innerHTML = '';
+        appState.recentChats.forEach(chat => {
+            const unreadBadge = chat.unread > 0 ? `<div class="unread-badge">${chat.unread}</div>` : '';
+            container.innerHTML += `
+                <div class="chat-list-item" onclick="goToDirectChat(${chat.clientId})">
+                    <img src="${chat.avatar}" class="chat-list-avatar">
+                    <div class="chat-list-info">
+                        <div class="chat-list-header">
+                            <h3>${chat.name}</h3>
+                            <span class="chat-list-time">${chat.time}</span>
+                        </div>
+                        <div class="chat-list-header">
+                            <p class="chat-list-msg">${chat.lastMessage}</p>
+                            ${unreadBadge}
+                        </div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    function goToDirectChat(clientId) {
+        const chatData = appState.recentChats.find(c => c.clientId === clientId);
+        if(!chatData) return;
+
+        document.getElementById('chatListView').style.display = 'none';
+        document.getElementById('chatConversationView').style.display = 'flex';
+        document.getElementById('mainHeader').style.display = 'none'; // Esconde o header global
+
+        document.getElementById('activeChatAvatar').src = chatData.avatar;
+        document.getElementById('activeChatName').innerText = chatData.name;
+
+        const chatWindow = document.getElementById('chatWindow');
+        chatWindow.innerHTML = '';
+
+        if (chatData.history) {
+            chatData.history.forEach(msg => {
+                if(msg.type === "date") {
+                    chatWindow.innerHTML += `<div class="chat-date-divider">${msg.text}</div>`;
+                } else {
+                    // No app do prestador, 'sent' é ele mesmo, 'received' é o cliente. A lógica visual é a mesma.
+                    chatWindow.innerHTML += `<div class="msg ${msg.type}">${msg.text}</div>`;
+                }
+            });
+            chatData.unread = 0;
+            renderChatList();
+        }
+        
+        setTimeout(() => { chatWindow.scrollTop = chatWindow.scrollHeight; }, 50);
+    }
+
+    function backToChatList() {
+        document.getElementById('chatConversationView').style.display = 'none';
+        document.getElementById('chatListView').style.display = 'block';
+        document.getElementById('mainHeader').style.display = 'flex'; // Volta o header global
+    }
+
+    function handleKeyPress(e) { if(e.key === 'Enter') sendMessage(); }
+
+    function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if(text === '') return;
+        
+        const chatWindow = document.getElementById('chatWindow');
+        chatWindow.innerHTML += `<div class="msg sent">${text}</div>`;
+        input.value = '';
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+
+        setTimeout(() => {
+            chatWindow.innerHTML += `<div class="msg received">Fechado! Te passo o endereço certinho.</div>`;
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }, 1500);
+    }
+</script>
+</body>
+</html>
