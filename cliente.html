@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App de Serviços - Completo com Scroll</title>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        /* ================= DESIGN SYSTEM ================= */
+        :root {
+            --bg-dark: #0F172A; --primary-blue: #2563EB;
+            --success-green: #22C55E; --rating-yellow: #FACC15; --alert-red: #EF4444;
+            --bg-color: #F8FAFC; --card-bg: #FFFFFF;
+            --border-color: #E2E8F0; --text-main: #1E293B; --text-muted: #64748B;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+
+        body { background-color: #CBD5E1; display: flex; justify-content: center; align-items: center; min-height: 100vh; overflow: hidden; }
+
+        /* SIMULADOR MOBILE */
+        .mobile-simulator {
+            width: 390px; height: 844px; background-color: var(--bg-color);
+            border: 14px solid #1E293B; border-radius: 45px; position: relative;
+            overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
+            display: flex; flex-direction: column;
+        }
+        .mobile-simulator::before {
+            content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 30px; background-color: #1E293B;
+            border-bottom-left-radius: 20px; border-bottom-right-radius: 20px; z-index: 9999;
+        }
+
+        /* UTILITÁRIOS */
+        .glass-effect { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+        /* HEADER & BUSCA */
+        .top-header { position: absolute; top: 0; width: 100%; z-index: 1000; padding: 40px 20px 15px; border-bottom: 1px solid var(--border-color); }
+        .location-bar { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 12px; font-size: 0.9rem; }
+        .location-bar i { color: var(--primary-blue); font-size: 1.2rem; }
+        .search-container { display: flex; align-items: center; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; padding: 10px 15px; }
+        .search-container input { flex: 1; border: none; outline: none; padding: 0 10px; font-size: 0.95rem; background: transparent; }
+
+        /* ÁREA DE CONTEÚDO (SCROLL DO CELULAR CORRIGIDO) */
+        .app-content { 
+            flex: 1; 
+            overflow-y: auto; 
+            padding-top: 135px; 
+            padding-bottom: 100px; /* Garante que o último card não suma atrás da bottom nav */
+            scrollbar-width: none; 
+            -webkit-overflow-scrolling: touch; /* Física de scroll do iOS */
+            overscroll-behavior-y: contain; /* Impede o scroll de arrastar a página do PC */
+        }
+        .app-content::-webkit-scrollbar { display: none; }
+        
+        /* ABAS (Ajustadas para expandirem livremente) */
+        .tab-section { display: none; padding: 0 20px; animation: fadeIn 0.3s ease; }
+        .tab-section.active { display: block; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        h2 { font-size: 1.1rem; margin-bottom: 15px; color: var(--bg-dark); }
+
+        /* HOME: CATEGORIAS E CARDS */
+        .categories-scroll { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; margin-bottom: 20px; }
+        .category-card { min-width: 75px; background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 12px 10px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; }
+        .category-card i { font-size: 1.6rem; color: var(--primary-blue); }
+        .category-card span { font-size: 0.75rem; font-weight: 500; }
+        
+        .workers-list { display: flex; flex-direction: column; gap: 12px; padding-bottom: 20px; }
+        .worker-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 15px; display: flex; gap: 15px; cursor: pointer; transition: transform 0.1s; }
+        .worker-card:active { transform: scale(0.98); }
+        .worker-avatar { width: 60px; height: 60px; border-radius: 12px; object-fit: cover; }
+        .worker-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .worker-header { display: flex; justify-content: space-between; align-items: flex-start; }
+        .worker-header h3 { font-size: 1rem; margin: 0; color: var(--text-main); }
+        .rating { display: flex; align-items: center; gap: 4px; font-size: 0.8rem; font-weight: 600; }
+        .rating i { color: var(--rating-yellow); }
+        .verified-badge { font-size: 0.7rem; color: var(--success-green); font-weight: 600; display: flex; align-items: center; gap: 3px; }
+        .price-tag { font-weight: 700; font-size: 0.9rem; color: var(--bg-dark); margin-top: 5px; }
+
+        /* TELA DE PERFIL DO PRESTADOR */
+        .profile-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-color); z-index: 2000; overflow-y: auto; padding-bottom: 90px; transform: translateX(100%); transition: transform 0.3s ease; scrollbar-width: none; }
+        .profile-overlay.open { transform: translateX(0); }
+        .profile-header-bg { height: 150px; background: linear-gradient(to right, var(--primary-blue), #1E3A8A); position: relative; }
+        .btn-back { position: absolute; top: 40px; left: 20px; background: rgba(0,0,0,0.3); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .profile-main-info { padding: 0 20px; margin-top: -40px; position: relative; }
+        .profile-avatar-large { width: 90px; height: 90px; border-radius: 20px; border: 4px solid var(--bg-color); object-fit: cover; background: white; }
+        .profile-title { margin-top: 10px; font-size: 1.3rem; }
+        
+        .gallery-slider { display: flex; gap: 10px; overflow-x: auto; margin: 15px 0; scrollbar-width: none; }
+        .gallery-slider img { width: 120px; height: 80px; border-radius: 10px; object-fit: cover; }
+        
+        .services-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: var(--card-bg); border-radius: 12px; overflow: hidden; border: 1px solid var(--border-color); }
+        .services-table th, .services-table td { padding: 12px; text-align: left; border-bottom: 1px solid var(--border-color); font-size: 0.85rem; }
+        .services-table th { background: #F1F5F9; font-weight: 600; }
+        
+        .review-card { background: var(--card-bg); padding: 12px; border-radius: 12px; border: 1px solid var(--border-color); margin-bottom: 10px; }
+        .review-card h4 { font-size: 0.9rem; margin-bottom: 4px; }
+        .review-card p { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+        
+        .action-buttons { display: flex; gap: 10px; margin-top: 20px; padding: 0 20px;}
+        .btn-primary, .btn-secondary { flex: 1; padding: 12px; border-radius: 10px; font-weight: 600; text-align: center; cursor: pointer; border: none; }
+        .btn-primary { background: var(--primary-blue); color: white; }
+        .btn-secondary { background: #E2E8F0; color: var(--bg-dark); }
+
+        /* SISTEMA DE CHAT */
+        .chat-list-container { display: flex; flex-direction: column; gap: 10px; }
+        .chat-list-item { display: flex; align-items: center; gap: 15px; background: var(--card-bg); padding: 15px; border-radius: 14px; border: 1px solid var(--border-color); cursor: pointer; }
+        .chat-list-avatar { width: 55px; height: 55px; border-radius: 50%; object-fit: cover; }
+        .chat-list-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+        .chat-list-header { display: flex; justify-content: space-between; align-items: center; }
+        .chat-list-header h3 { font-size: 1rem; margin: 0; color: var(--text-main); }
+        .chat-list-time { font-size: 0.75rem; color: var(--text-muted); }
+        .chat-list-msg { font-size: 0.85rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+        .unread-badge { background: var(--primary-blue); color: white; font-size: 0.7rem; font-weight: bold; padding: 2px 8px; border-radius: 10px; }
+
+        .chat-conversation-view { display: none; flex-direction: column; height: 100%; }
+        .chat-user-header { display: flex; align-items: center; gap: 12px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; }
+        .btn-back-chat { background: none; border: none; font-size: 1.5rem; color: var(--text-main); cursor: pointer; display: flex; align-items: center; }
+        .chat-user-avatar { width: 45px; height: 45px; border-radius: 50%; object-fit: cover; }
+        .chat-user-info h3 { font-size: 1rem; margin: 0; color: var(--bg-dark); }
+        .chat-user-info span { font-size: 0.75rem; color: var(--success-green); font-weight: 600; }
+        
+        .chat-messages { flex: 1; display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; overflow-y: auto; padding-bottom: 10px; scrollbar-width: none; }
+        .msg { max-width: 80%; padding: 10px 14px; border-radius: 16px; font-size: 0.85rem; line-height: 1.4; }
+        .msg.received { background: var(--card-bg); border: 1px solid var(--border-color); align-self: flex-start; border-bottom-left-radius: 4px; }
+        .msg.sent { background: var(--primary-blue); color: white; align-self: flex-end; border-bottom-right-radius: 4px; }
+        .chat-date-divider { text-align: center; font-size: 0.7rem; color: var(--text-muted); margin: 10px 0; }
+        
+        .chat-input-area { display: flex; gap: 10px; background: var(--card-bg); padding: 10px; border-radius: 20px; border: 1px solid var(--border-color); margin-bottom: 20px; }
+        .chat-input-area input { flex: 1; border: none; outline: none; background: transparent; font-size: 0.9rem; }
+        .chat-input-area button { background: var(--primary-blue); color: white; border: none; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+
+        /* CONTA DO USUÁRIO */
+        .account-header { display: flex; align-items: center; gap: 15px; margin-bottom: 25px; padding-top: 10px; }
+        .account-avatar { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; border: 2px solid var(--primary-blue); }
+        .account-menu { display: flex; flex-direction: column; gap: 10px; }
+        .menu-item { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); padding: 16px; border-radius: 14px; border: 1px solid var(--border-color); cursor: pointer; }
+        .menu-item-left { display: flex; align-items: center; gap: 12px; font-weight: 500; color: var(--text-main); }
+        .menu-item-left i { font-size: 1.3rem; color: var(--primary-blue); }
+
+        /* NAVEGAÇÃO INFERIOR */
+        .bottom-nav { position: absolute; bottom: 0; width: 100%; display: flex; justify-content: space-around; padding: 15px 0 25px; border-top: 1px solid var(--border-color); z-index: 1500; }
+        .nav-item { background: none; border: none; display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-muted); font-size: 0.7rem; cursor: pointer; }
+        .nav-item i { font-size: 1.4rem; }
+        .nav-item.active { color: var(--primary-blue); }
+    </style>
+</head>
+<body>
+
+<div class="mobile-simulator">
+    
+    <!-- HEADER DA HOME -->
+    <header class="top-header glass-effect" id="mainHeader">
+        <div class="location-bar"><i class="ph-fill ph-map-pin"></i> <span>Vila Velha, ES</span></div>
+        <div class="search-container">
+            <i class="ph ph-magnifying-glass"></i>
+            <input type="text" id="searchInput" placeholder="Qual serviço você precisa?">
+        </div>
+    </header>
+
+    <!-- CONTEÚDO DAS ABAS -->
+    <main class="app-content" id="appMainContent">
+        
+        <!-- ABA 1: HOME -->
+        <section id="tab-home" class="tab-section active">
+            <h2>Categorias</h2>
+            <div class="categories-scroll" id="categoriesContainer"></div>
+            <h2>Profissionais Próximos</h2>
+            <div id="workersContainer" class="workers-list"></div>
+        </section>
+
+        <!-- ABA 2: CHAT -->
+        <section id="tab-chat" class="tab-section">
+            <div id="chatListView">
+                <h2 style="margin-top: 10px;">Mensagens</h2>
+                <div class="chat-list-container" id="chatListContainer"></div>
+            </div>
+
+            <div id="chatConversationView" class="chat-conversation-view">
+                <div class="chat-user-header" id="activeChatHeader">
+                    <button class="btn-back-chat" onclick="backToChatList()"><i class="ph ph-caret-left"></i></button>
+                    <img src="" id="activeChatAvatar" class="chat-user-avatar">
+                    <div class="chat-user-info">
+                        <h3 id="activeChatName">Nome</h3>
+                        <span>Online</span>
+                    </div>
+                </div>
+                <div class="chat-messages" id="chatWindow"></div>
+                <div class="chat-input-area">
+                    <input type="text" placeholder="Digite uma mensagem..." id="chatInput" onkeypress="handleKeyPress(event)">
+                    <button onclick="sendMessage()"><i class="ph-fill ph-paper-plane-right"></i></button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ABA 3: CONTA -->
+        <section id="tab-account" class="tab-section">
+            <div class="account-header">
+                <img src="" id="userAvatarDisplay" class="account-avatar">
+                <div>
+                    <h2 id="userNameDisplay" style="margin-bottom: 2px;">Carregando...</h2>
+                    <p id="userEmailDisplay" style="color: var(--text-muted); font-size: 0.9rem;"></p>
+                </div>
+            </div>
+            <div class="account-menu">
+                <div class="menu-item" onclick="alert('Página: Meus Dados Pessoais')">
+                    <div class="menu-item-left"><i class="ph-fill ph-user"></i> Meus Dados</div><i class="ph ph-caret-right"></i>
+                </div>
+                <div class="menu-item" onclick="alert('Página: Meus Endereços')">
+                    <div class="menu-item-left"><i class="ph-fill ph-map-pin"></i> Endereços</div><i class="ph ph-caret-right"></i>
+                </div>
+                <div class="menu-item" onclick="alert('Página: Métodos de Pagamento')">
+                    <div class="menu-item-left"><i class="ph-fill ph-credit-card"></i> Pagamentos</div><i class="ph ph-caret-right"></i>
+                </div>
+                <div class="menu-item" onclick="alert('Página: Central de Ajuda')">
+                    <div class="menu-item-left"><i class="ph-fill ph-question"></i> Ajuda e Suporte</div><i class="ph ph-caret-right"></i>
+                </div>
+                <div class="menu-item" style="margin-top: 15px;" onclick="alert('Saindo da conta...')">
+                    <div class="menu-item-left" style="color: var(--alert-red);"><i class="ph-fill ph-sign-out"></i> Sair da Conta</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- TELA DE PERFIL DO PRESTADOR -->
+    <div class="profile-overlay" id="profileView">
+        <div class="profile-header-bg">
+            <button class="btn-back" onclick="closeProfile()"><i class="ph ph-caret-left"></i></button>
+        </div>
+        <div class="profile-main-info" id="profileContent"></div>
+    </div>
+
+    <!-- BOTTOM NAV -->
+    <nav class="bottom-nav glass-effect">
+        <button class="nav-item active" data-target="tab-home"><i class="ph-fill ph-house"></i><span>Home</span></button>
+        <button class="nav-item" data-target="tab-chat"><i class="ph-fill ph-chat-circle-dots"></i><span>Chat</span></button>
+        <button class="nav-item" data-target="tab-account"><i class="ph-fill ph-user"></i><span>Conta</span></button>
+    </nav>
+
+</div>
+
+<script>
+    // ================= 1. ESTADO CENTRALIZADO (JSON) =================
+    const appState = {
+        config: { version: "1.0" },
+        currentUser: {
+            name: "Allan Iglesias",
+            email: "contato@dev.com",
+            avatar: "https://i.pravatar.cc/150?img=68"
+        },
+        categories: [
+            { name: "Elétrica", icon: "ph-lightning" },
+            { name: "Encanamento", icon: "ph-wrench" },
+            { name: "Montagem", icon: "ph-armchair" },
+            { name: "Limpeza", icon: "ph-broom" },
+            { name: "Pintura", icon: "ph-paint-roller" }
+        ],
+        recentChats: [
+            { 
+                workerId: 1, lastMessage: "Podemos agendar o melhor horário.", time: "10:30", unread: 1,
+                history: [
+                    { type: "date", text: "Hoje" },
+                    { type: "sent", text: "Bom dia, Carlos! Preciso de um orçamento para instalar três tomadas." },
+                    { type: "received", text: "Bom dia, Allan! Cobro R$ 80 por ponto, totalizando R$ 240. O material já está no local?" },
+                    { type: "sent", text: "Eu já comprei as tomadas e os fios, só falta a mão de obra mesmo." },
+                    { type: "received", text: "Perfeito! Então fechamos nos R$ 240. Podemos agendar o melhor horário." }
+                ]
+            },
+            { 
+                workerId: 2, lastMessage: "Obrigado, ficou ótimo!", time: "Ontem", unread: 0,
+                history: [
+                    { type: "date", text: "Ontem" },
+                    { type: "received", text: "Allan, finalizei a montagem do guarda-roupa. Pode conferir se ficou tudo de acordo?" },
+                    { type: "sent", text: "Dei uma olhada, as portas estão deslizando perfeitamente. Já fiz o PIX do valor combinado." },
+                    { type: "received", text: "Recebido aqui! Qualquer coisa é só chamar." },
+                    { type: "sent", text: "Obrigado, ficou ótimo!" }
+                ]
+            }
+        ],
+        workers: [
+            {
+                id: 1, name: "Carlos Eletricista", profession: "Eletricista Residencial", rating: 4.9, distance: "2.1 km", verified: true,
+                avatar: "https://i.pravatar.cc/150?img=11", about: "Especialista em instalações e reparos.",
+                gallery: ["https://picsum.photos/id/1025/200/150", "https://picsum.photos/id/1078/200/150"],
+                services: [{ name: "Instalação de Tomada", price: "R$ 80" }, { name: "Revisão Elétrica", price: "R$ 200" }],
+                reviews: [{ author: "Mariana", stars: "⭐⭐⭐⭐⭐", text: "Rápido e limpo." }]
+            },
+            {
+                id: 2, name: "Lucas Montador", profession: "Montador de Móveis", rating: 5.0, distance: "3.5 km", verified: true,
+                avatar: "https://i.pravatar.cc/150?img=12", about: "Monto qualquer tipo de móvel comprado na internet.",
+                gallery: ["https://picsum.photos/id/175/200/150", "https://picsum.photos/id/180/200/150"],
+                services: [{ name: "Guarda-roupa", price: "R$ 150" }],
+                reviews: [{ author: "Fernanda", stars: "⭐⭐⭐⭐⭐", text: "Muito cuidadoso." }]
+            },
+            {
+                id: 3, name: "Ana Costa", profession: "Especialista em Limpeza", rating: 4.8, distance: "1.2 km", verified: true,
+                avatar: "https://i.pravatar.cc/150?img=5", about: "Limpeza pesada e faxina de manutenção.",
+                gallery: ["https://picsum.photos/id/415/200/150"],
+                services: [{ name: "Faxina Completa", price: "R$ 180" }],
+                reviews: [{ author: "Roberto", stars: "⭐⭐⭐⭐", text: "Muito detalhista." }]
+            },
+            {
+                id: 4, name: "Roberto Mendes", profession: "Encanador Profissional", rating: 4.6, distance: "4.0 km", verified: false,
+                avatar: "https://i.pravatar.cc/150?img=8", about: "Resolvo vazamentos e instalo tubulações.",
+                gallery: ["https://picsum.photos/id/1015/200/150"],
+                services: [{ name: "Troca de Sifão", price: "R$ 90" }],
+                reviews: [{ author: "João", stars: "⭐⭐⭐⭐", text: "Resolveu o problema." }]
+            },
+            {
+                id: 5, name: "Marcos Silva", profession: "Técnico em Refrigeração", rating: 4.9, distance: "5.5 km", verified: true,
+                avatar: "https://i.pravatar.cc/150?img=33", about: "Instalação e manutenção de Ar Condicionado.",
+                gallery: ["https://picsum.photos/id/133/200/150"],
+                services: [{ name: "Limpeza de Ar", price: "R$ 130" }],
+                reviews: [{ author: "Thiago", stars: "⭐⭐⭐⭐⭐", text: "Salvou meu verão." }]
+            },
+            {
+                id: 6, name: "Daniela Pinturas", profession: "Pintora Residencial", rating: 4.7, distance: "2.8 km", verified: true,
+                avatar: "https://i.pravatar.cc/150?img=47", about: "Pintura lisa, texturas e massa corrida.",
+                gallery: ["https://picsum.photos/id/240/200/150"],
+                services: [{ name: "Pintura por Cômodo", price: "R$ 350" }],
+                reviews: [{ author: "Aline", stars: "⭐⭐⭐⭐⭐", text: "A sala ficou linda." }]
+            }
+        ]
+    };
+
+    // ================= 2. RENDERIZAÇÃO =================
+    document.addEventListener('DOMContentLoaded', () => {
+        renderCategories();
+        renderWorkersList(appState.workers);
+        loadUserData();
+        renderChatList();
+    });
+
+    function loadUserData() {
+        document.getElementById('userNameDisplay').innerText = appState.currentUser.name;
+        document.getElementById('userEmailDisplay').innerText = appState.currentUser.email;
+        document.getElementById('userAvatarDisplay').src = appState.currentUser.avatar;
+    }
+
+    function renderCategories() {
+        const container = document.getElementById('categoriesContainer');
+        container.innerHTML = '';
+        appState.categories.forEach(cat => {
+            container.innerHTML += `
+                <div class="category-card" onclick="document.getElementById('searchInput').value = '${cat.name}'; document.getElementById('searchInput').dispatchEvent(new Event('input'));">
+                    <i class="ph ${cat.icon}"></i><span>${cat.name}</span>
+                </div>`;
+        });
+    }
+
+    function renderWorkersList(workers) {
+        const container = document.getElementById('workersContainer');
+        container.innerHTML = '';
+        if(workers.length === 0) {
+            container.innerHTML = '<p style="text-align:center; color:var(--text-muted); margin-top:20px;">Nenhum profissional encontrado.</p>';
+            return;
+        }
+        const sortedWorkers = [...workers].sort((a, b) => b.rating - a.rating);
+        sortedWorkers.forEach(w => {
+            container.innerHTML += `
+                <div class="worker-card" onclick="openProfile(${w.id})">
+                    <img src="${w.avatar}" class="worker-avatar">
+                    <div class="worker-info">
+                        <div class="worker-header">
+                            <h3>${w.name}</h3>
+                            <div class="rating"><i class="ph-fill ph-star"></i> ${w.rating.toFixed(1)}</div>
+                        </div>
+                        <span style="font-size:0.8rem; color:var(--text-muted)">${w.profession} • ${w.distance}</span>
+                        ${w.verified ? `<span class="verified-badge"><i class="ph-fill ph-seal-check"></i> Verificado</span>` : ''}
+                        <div class="price-tag">A partir de ${w.services[0].price}</div>
+                    </div>
+                </div>`;
+        });
+    }
+
+    // ================= 3. NAVEGAÇÃO =================
+    const navItems = document.querySelectorAll('.nav-item');
+    const tabSections = document.querySelectorAll('.tab-section');
+
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            navItems.forEach(nav => nav.classList.remove('active'));
+            tabSections.forEach(sec => sec.classList.remove('active'));
+            
+            e.currentTarget.classList.add('active');
+            const targetId = e.currentTarget.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+            document.getElementById('mainHeader').style.display = targetId === 'tab-home' ? 'block' : 'none';
+
+            // Reseta o scroll para o topo sempre que muda de aba
+            document.getElementById('appMainContent').scrollTop = 0;
+
+            if(targetId === 'tab-chat') {
+                backToChatList();
+            }
+        });
+    });
+
+    // ================= 4. PERFIL =================
+    function openProfile(id) {
+        const worker = appState.workers.find(w => w.id === id);
+        const content = document.getElementById('profileContent');
+        let galleryHTML = worker.gallery.map(img => `<img src="${img}">`).join('');
+        let servicesHTML = worker.services.map(s => `<tr><td>${s.name}</td><td>${s.price}</td></tr>`).join('');
+        let reviewsHTML = worker.reviews.map(r => `<div class="review-card"><h4>${r.author} <span style="font-size:0.8rem">${r.stars}</span></h4><p>${r.text}</p></div>`).join('');
+
+        content.innerHTML = `
+            <img src="${worker.avatar}" class="profile-avatar-large">
+            <h2 class="profile-title">${worker.name} ${worker.verified ? '<i class="ph-fill ph-seal-check" style="color:var(--success-green); font-size:1.2rem;"></i>' : ''}</h2>
+            <p style="color:var(--text-muted); font-size:0.9rem; margin-bottom: 15px;">${worker.profession} • ⭐ ${worker.rating}</p>
+            <h3 style="font-size:1rem; margin-bottom:5px;">Galeria</h3>
+            <div class="gallery-slider">${galleryHTML}</div>
+            <h3 style="font-size:1rem; margin:15px 0 5px;">Sobre</h3>
+            <p style="font-size:0.85rem; color:var(--text-muted); line-height:1.5;">${worker.about}</p>
+            <h3 style="font-size:1rem; margin:15px 0 5px;">Serviços Base</h3>
+            <table class="services-table">
+                <thead><tr><th>Serviço</th><th>Valor</th></tr></thead>
+                <tbody>${servicesHTML}</tbody>
+            </table>
+            <h3 style="font-size:1rem; margin:15px 0 5px;">Avaliações</h3>
+            ${reviewsHTML}
+            <div class="action-buttons">
+                <button class="btn-secondary" onclick="closeProfile(); goToDirectChat(${worker.id})">💬 Chat</button>
+                <button class="btn-primary" onclick="alert('Iniciando contratação segura...')">Contratar</button>
+            </div>
+        `;
+        document.getElementById('profileView').classList.add('open');
+    }
+
+    function closeProfile() {
+        document.getElementById('profileView').classList.remove('open');
+    }
+
+    // ================= 5. CHAT LOGIC =================
+    function renderChatList() {
+        const container = document.getElementById('chatListContainer');
+        container.innerHTML = '';
+        appState.recentChats.forEach(chat => {
+            const worker = appState.workers.find(w => w.id === chat.workerId);
+            if(worker) {
+                const unreadBadge = chat.unread > 0 ? `<div class="unread-badge">${chat.unread}</div>` : '';
+                container.innerHTML += `
+                    <div class="chat-list-item" onclick="goToDirectChat(${worker.id})">
+                        <img src="${worker.avatar}" class="chat-list-avatar">
+                        <div class="chat-list-info">
+                            <div class="chat-list-header">
+                                <h3>${worker.name}</h3>
+                                <span class="chat-list-time">${chat.time}</span>
+                            </div>
+                            <div class="chat-list-header">
+                                <p class="chat-list-msg">${chat.lastMessage}</p>
+                                ${unreadBadge}
+                            </div>
+                        </div>
+                    </div>`;
+            }
+        });
+    }
+
+    function goToDirectChat(workerId) {
+        if(!workerId) return;
+        const worker = appState.workers.find(w => w.id === workerId);
+        if(!worker) return;
+
+        const chatData = appState.recentChats.find(c => c.workerId === workerId);
+        document.getElementById('chatListView').style.display = 'none';
+        document.getElementById('chatConversationView').style.display = 'flex';
+        document.getElementById('activeChatAvatar').src = worker.avatar;
+        document.getElementById('activeChatName').innerText = worker.name;
+
+        const chatWindow = document.getElementById('chatWindow');
+        chatWindow.innerHTML = '';
+
+        if (chatData && chatData.history) {
+            chatData.history.forEach(msg => {
+                if(msg.type === "date") {
+                    chatWindow.innerHTML += `<div class="chat-date-divider">${msg.text}</div>`;
+                } else {
+                    chatWindow.innerHTML += `<div class="msg ${msg.type}">${msg.text}</div>`;
+                }
+            });
+            chatData.unread = 0;
+            renderChatList();
+        } else {
+            chatWindow.innerHTML = `<div class="msg received">Olá! Como posso ajudar hoje?</div>`;
+        }
+        
+        document.querySelector('[data-target="tab-chat"]').click();
+        document.getElementById('chatListView').style.display = 'none';
+        document.getElementById('chatConversationView').style.display = 'flex';
+        setTimeout(() => { chatWindow.scrollTop = chatWindow.scrollHeight; }, 50);
+    }
+
+    function backToChatList() {
+        document.getElementById('chatConversationView').style.display = 'none';
+        document.getElementById('chatListView').style.display = 'block';
+    }
+
+    function handleKeyPress(e) { if(e.key === 'Enter') sendMessage(); }
+
+    function sendMessage() {
+        const input = document.getElementById('chatInput');
+        const text = input.value.trim();
+        if(text === '') return;
+        const chatWindow = document.getElementById('chatWindow');
+        chatWindow.innerHTML += `<div class="msg sent">${text}</div>`;
+        input.value = '';
+        chatWindow.scrollTop = chatWindow.scrollHeight;
+        setTimeout(() => {
+            chatWindow.innerHTML += `<div class="msg received">Certo, entendi!</div>`;
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        }, 1200);
+    }
+
+    // ================= 6. BUSCA =================
+    document.getElementById('searchInput').addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = appState.workers.filter(w => 
+            w.name.toLowerCase().includes(term) || w.profession.toLowerCase().includes(term) || w.services.some(s => s.name.toLowerCase().includes(term))
+        );
+        renderWorkersList(filtered);
+    });
+</script>
+</body>
+</html>
